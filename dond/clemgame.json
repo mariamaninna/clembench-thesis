@@ -4,6 +4,7 @@
     "main_game": "dond",
     "players": 2,
     "image": "none",
+    "roles": ["Player1", "Player2"],
     "languages": [
         "en",
         "it",
