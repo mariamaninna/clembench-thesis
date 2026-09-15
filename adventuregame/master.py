@@ -241,10 +241,12 @@ class AdventureGameMaster(DialogueGameMaster):
                 self.state.failed()
 
     def _on_after_round(self):
+        if self.state.outcome is not Outcome.RUNNING:
+            return
         if self.current_round + 1 >= self.state.max_turns:
-            self.state.abort()
+            self.state.failed()
             self.log_to_self("turn_limit_reached",
-                             f"Turn limit {self.state.max_turns} reached, end episode.")
+                             f"Turn limit {self.state.max_turns} reached, end episode with lose.")
 
     def _on_after_game(self):
         # record final results once game episode has ended:
@@ -495,8 +497,8 @@ class AdventureGameScorer(GameScorer):
         # scale full rating to 0-100:
         partial_success_rating = partial_success_rating * 100
 
-        # invalid format or turn limit aborted:
-        if invalid_format or turn_limit_loss:
+        # invalid format => aborted:
+        if invalid_format:
             self.log_episode_score(metrics.METRIC_ABORTED, 1)
             self.log_episode_score(metrics.METRIC_SUCCESS, 0)
             self.log_episode_score(metrics.METRIC_LOSE, 0)

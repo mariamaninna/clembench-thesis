@@ -3,7 +3,7 @@ from clemcore.clemgame import GameMaster, GameBenchmark, Player, GameSpec
 from clemcore.clemgame.legacy.scorer import GameScorer
 from clemcore.clemgame.legacy.master import DialogueGameMaster
 from clemcore.clemgame.metrics import METRIC_ABORTED, METRIC_SUCCESS, METRIC_LOSE, BENCH_SCORE
-from clemcore.clemgame.master import GameState
+from clemcore.clemgame.master import GameState, Outcome
 from clemcore.utils import file_utils, string_utils
 
 from typing import Any, Dict, List, Tuple, Optional
@@ -266,9 +266,11 @@ class textmapworld_specificroom(DialogueGameMaster):
             self.set_context_for(self.guesser, utterance)
 
     def _on_after_round(self):
+        if self.state.outcome is not Outcome.RUNNING:
+            return
         if self.current_round + 1 >= self.state.max_turns:
-            self.log_to_self("turns_limit", str(self.state.max_turns))
-            self.state.abort()
+            self.log_to_self("turns_limit", "turn limit reached, game lost " + str(self.state.max_turns))
+            self.state.failed()
         else:
             turn_dict = self.describer.turn_information()
             old_node = turn_dict["from"]
@@ -397,36 +399,30 @@ class GraphGameScorer(GameScorer):
             self.log_episode_score(METRIC_SUCCESS, 0)
             self.log_episode_score(METRIC_LOSE, 0)
         else:
-            if not stopped:
-                self.log_episode_score(METRIC_ABORTED, 1)
-                self.log_episode_score(METRIC_SUCCESS, 0)
+            self.log_episode_score(METRIC_ABORTED, 0)
+            if stopped and self.specifc_room.lower() == visited_list[-1].lower():
+                success = 100
+                self.log_episode_score(METRIC_SUCCESS, 1)
                 self.log_episode_score(METRIC_LOSE, 0)
             else:
-                if self.specifc_room.lower() == visited_list[-1].lower():
-                    success = 100
-                    self.log_episode_score(METRIC_SUCCESS, 1)
-                    self.log_episode_score(METRIC_ABORTED, 0)
-                    self.log_episode_score(METRIC_LOSE, 0)
-                else:
-                    self.log_episode_score(METRIC_SUCCESS, 0)
-                    self.log_episode_score(METRIC_ABORTED, 0)
-                    self.log_episode_score(METRIC_LOSE, 1)
+                self.log_episode_score(METRIC_SUCCESS, 0)
+                self.log_episode_score(METRIC_LOSE, 1)
 
         exploration = (len(visited) / len(self.nodes) * 100) if len(self.nodes) else 0
         efficiency = (sum(good_move) / len(good_move) * 100) if good_move else 0
         bench_score = (2 * efficiency * exploration / (efficiency + exploration)) if (efficiency + exploration) else 0
-        self.log_episode_score('moves', valid_moves + invalid_moves if stopped else np.nan)
-        self.log_episode_score('valid_moves', valid_moves if stopped else np.nan)
-        self.log_episode_score('invalid_moves', invalid_moves if stopped else np.nan)
-        self.log_episode_score('stopped', int(stopped) if stopped else np.nan)
-        self.log_episode_score('turns_limit', int(turns_limit_reached) if stopped else np.nan)
-        self.log_episode_score('loops', count_loops if stopped else np.nan)
-        self.log_episode_score('number_visited', len(visited) if stopped else np.nan)
-        self.log_episode_score('seen', len(seen) if stopped else np.nan)
-        self.log_episode_score('efficiency', efficiency if stopped else np.nan)
-        self.log_episode_score('exploration', exploration if stopped else np.nan)
-        self.log_episode_score('old_benchscore', bench_score if stopped else np.nan)
-        self.log_episode_score(BENCH_SCORE, success if stopped else np.nan)
+        self.log_episode_score('moves', np.nan if aborted else valid_moves + invalid_moves)
+        self.log_episode_score('valid_moves', np.nan if aborted else valid_moves)
+        self.log_episode_score('invalid_moves', np.nan if aborted else invalid_moves)
+        self.log_episode_score('stopped', np.nan if aborted else int(stopped))
+        self.log_episode_score('turns_limit', np.nan if aborted else int(turns_limit_reached))
+        self.log_episode_score('loops', np.nan if aborted else count_loops)
+        self.log_episode_score('number_visited', np.nan if aborted else len(visited))
+        self.log_episode_score('seen', np.nan if aborted else len(seen))
+        self.log_episode_score('efficiency', np.nan if aborted else efficiency)
+        self.log_episode_score('exploration', np.nan if aborted else exploration)
+        self.log_episode_score('old_benchscore', np.nan if aborted else bench_score)
+        self.log_episode_score(BENCH_SCORE, np.nan if aborted else success)
 
 
 class GraphGameBenchmark(GameBenchmark):
