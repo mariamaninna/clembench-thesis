@@ -192,14 +192,16 @@ class ReferenceGameScorer(GameScorer):
         # evaluate Player 1
         turn_request_count += 1
         episode_request_count += 1
-        # check if the Player 1 message followed the rule
-        # (true if third interaction (GM to GM) has type "parse")
-        if turn[2]['action']['type'] == "parse":
+        # check if the Player 1 message followed the rule — search by type, not hardcoded index
+        p1_parse_event = next(
+            (e for e in turn if e["from"] == "GM" and e["to"] == "GM" and e["action"]["type"] == "parse"), None
+        )
+        if p1_parse_event:
             turn_parsed_request_count += 1
             episode_parsed_request_count += 1
 
             # log the Player 1 - message length
-            p1_expression = turn[2]['action']['content']
+            p1_expression = p1_parse_event['action']['content']
             expression_length = len(p1_expression)
             self.log_turn_score(turn_index, 'Generated Expression Length', expression_length)
             # as there is just one turn, this is the same as episode scores
@@ -217,11 +219,16 @@ class ReferenceGameScorer(GameScorer):
             # check if the Player 2 message matched the rule
             # (true if sixth interaction (GM to GM) has type "parse")
 
-            if turn[5]['action']['type'].startswith("parse"):
+            p2_parse_event = next(
+                (e for e in turn[turn.index(p1_parse_event) + 1:]
+                 if e["from"] == "GM" and e["to"] == "GM"
+                 and e["action"]["type"] in ("parse", "parse_correct", "parse_wrong")), None
+            )
+            if p2_parse_event and p2_parse_event['action']['type'].startswith("parse"):
                 turn_parsed_request_count += 1
                 episode_parsed_request_count += 1
 
-                if "correct" in turn[5]['action']['type']:
+                if "correct" in p2_parse_event['action']['type']:
                     success = 1
 
                 self.log_episode_score('Aborted at Player 1', 0)
