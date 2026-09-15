@@ -239,6 +239,9 @@ class PrivateShared(DialogueGameMaster):
             self.state.request_counts[self.current_round] += 1  # requests to the answerer per round
 
     def _set_final_state(self):
+        if not self.state.filled_slots:
+            self.state.failed()
+            return
         successful = sum(self.state.filled_slots)/len(self.state.filled_slots) == 1 and self.state.probes_all_correct == True
         self.state.succeed() if successful else self.state.failed()
 
@@ -449,7 +452,12 @@ class PrivateSharedScorer(GameScorer):
         trunc_kappa = max(0, kappa) if not aborted else np.nan
         filled = logs['Filled Slots']
         # stdout_logger.warning(f"Filled slots: {filled}")
-        sf_acc = sum(filled) / len(filled) if not aborted else np.nan
+        if aborted:
+            sf_acc = np.nan
+        elif filled:
+            sf_acc = sum(filled) / len(filled)
+        else:
+            sf_acc = 0.0  # game ran but all player responses were invalid format
         bench_score = PrivateSharedScorer.compute_bench_score(sf_acc, trunc_kappa)
 
         self.log_episode_score('Accuracy', acc)
