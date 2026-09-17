@@ -161,6 +161,19 @@ class MultimodalReferenceGameScorer(GameScorer):
         self.target_grid_name = game_instance["target_image_name"]
         self.player_2_response_pattern = game_instance["player_2_response_pattern"]
 
+    def _find_gm_event(self, turn, action_types, after=None):
+        """Return first GM-to-GM event whose action type is in action_types.
+        If after is given, only search events that come after that event object."""
+        found_after = after is None
+        for event in turn:
+            if not found_after:
+                if event is after:
+                    found_after = True
+                continue
+            if event["from"] == "GM" and event["to"] == "GM" and event["action"]["type"] in action_types:
+                return event
+        return None
+
     def compute_scores(self, episode_interactions: Dict) -> None:
         """
         Compute and log scores for one episode of referencegame.
@@ -183,14 +196,14 @@ class MultimodalReferenceGameScorer(GameScorer):
         # evaluate Player 1
         turn_request_count += 1
         episode_request_count += 1
-        # check if the Player 1 message followed the rule
-        # (true if third interaction (GM to GM) has type "parse")
-        if turn[2]['action']['type'] == "parse":
+        # check if the Player 1 message followed the rule — search by type, not hardcoded index
+        p1_parse_event = self._find_gm_event(turn, {"parse"})
+        if p1_parse_event:
             turn_parsed_request_count += 1
             episode_parsed_request_count += 1
 
             # log the Player 1 - message length
-            p1_expression = turn[2]['action']['content']
+            p1_expression = p1_parse_event['action']['content']
             expression_length = len(p1_expression)
             self.log_turn_score(turn_index, 'Generated Expression Length', expression_length)
             # as there is just one turn, this is the same as episode scores
@@ -211,22 +224,27 @@ class MultimodalReferenceGameScorer(GameScorer):
             # allow for more liberal player 2 parsing by rematching original response with more liberal regex
             # TODO: move to game master for future runs
             p2_match = False
-            if turn[5]['action']['type'] == "invalid format":
+            p2_event = self._find_gm_event(turn, {"parse", "parse_correct", "parse_wrong", "invalid format"}, after=p1_parse_event)
+            if p2_event and p2_event['action']['type'] == "invalid format":
                 player_2_pattern = re.compile(self.player_2_response_pattern, re.IGNORECASE)
-                p2_match = re.match(player_2_pattern, turn[5]['action']['original_content'])
+                p2_match = re.match(player_2_pattern, p2_event['action']['original_content'])
 
-            if turn[5]['action']['type'] == "parse" or p2_match:
+            p2_type = p2_event['action']['type'] if p2_event else None
+            if p2_type in ("parse", "parse_correct", "parse_wrong") or p2_match:
                 turn_parsed_request_count += 1
                 episode_parsed_request_count += 1
                 # check if the target grid number matches the output from Player 2
-                player_2_answer = ""
-                if p2_match:
-                    player_2_answer = p2_match.group('content')
-                elif turn[5]['action']['type'] == "parse":
-                    player_2_answer = turn[5]['action']['answer']
-
-                if player_2_answer.lower() in self.target_grid_name:
+                if p2_type == "parse_correct":
                     success = 1
+                elif p2_match:
+                    player_2_answer = p2_match.group('content')
+                    if player_2_answer.lower() in self.target_grid_name:
+                        success = 1
+                elif p2_type == "parse":
+                    player_2_answer = p2_event['action'].get('answer') or p2_event['action'].get('content', '')
+                    if player_2_answer.lower() in self.target_grid_name:
+                        success = 1
+                # parse_wrong: success stays 0
 
                 self.log_episode_score('Aborted at Player 1', 0)
                 self.log_episode_score('Aborted at Player 2', 0)

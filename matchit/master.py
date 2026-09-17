@@ -219,7 +219,11 @@ class MatchIt(DialogueGameMaster):
                 return True
 
             # prepare next turn here
-            if self.current_round == self.decision_turn and self.current_player == self.player_b:
+            if self.current_round == self.decision_turn and self.current_player == self.player_a:
+                # Player A does not respond at decision_turn; only Player B does (ANSWER + DECISION)
+                self.answer_counter = 0
+                return True
+            elif self.current_round == self.decision_turn and self.current_player == self.player_b:
                 self.set_context_for(self.current_player, self.d_reprompt)
             elif self.current_round == 0:
                 self.set_context_for(self.current_player,

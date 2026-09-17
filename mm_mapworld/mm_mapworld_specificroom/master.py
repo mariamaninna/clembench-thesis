@@ -485,24 +485,27 @@ class MM_MapWorldScorer(GameScorer):
         super().store_scores(interactions_dir)
 
         # plotting & animation
-        if not os.path.exists("tmp"):
-            os.makedirs("tmp")
-        path_plot = self.plot_path(self.path)
-        path_plot.savefig(os.path.join(interactions_dir, "path.png"))
-        plt.close()
-        if not os.path.exists("tmp/step_plots"):
-            os.makedirs("tmp/step_plots")
-        images = []
-        for i in range(len(self.path)):
-            step_plot = self.plot_path(self.path[:i + 1])
-            step_plot.savefig(f"tmp/step_plots/{i}.png")
-            images.append(imageio.imread(f"tmp/step_plots/{i}.png"))
-            plt.close()
-        imageio.mimsave(os.path.join(interactions_dir, "animation.gif"), images, fps=1, loop=True)
         try:
-            shutil.rmtree("tmp")
-        except OSError as e:
-            print("Error: %s - %s." % (e.filename, e.strerror))
+            if not os.path.exists("tmp"):
+                os.makedirs("tmp")
+            path_plot = self.plot_path(self.path)
+            path_plot.savefig(os.path.join(interactions_dir, "path.png"))
+            plt.close()
+            if not os.path.exists("tmp/step_plots"):
+                os.makedirs("tmp/step_plots")
+            images = []
+            for i in range(len(self.path)):
+                step_plot = self.plot_path(self.path[:i + 1])
+                step_plot.savefig(f"tmp/step_plots/{i}.png")
+                images.append(imageio.imread(f"tmp/step_plots/{i}.png"))
+                plt.close()
+            imageio.mimsave(os.path.join(interactions_dir, "animation.gif"), images, fps=1, loop=True)
+            try:
+                shutil.rmtree("tmp")
+            except OSError as e:
+                print("Error: %s - %s." % (e.filename, e.strerror))
+        except Exception as e:
+            print(f"Warning: plotting failed (scores are still saved): {e}")
 
 
 class MmMapWorldBenchmark(GameBenchmark):
