@@ -548,7 +548,7 @@ class WordleScorer(GameScorer):
         The lesser the number of turns, the higher the speed
         """
         num_rounds: int = len(episode_interactions["turns"])
-        if self.game_name == "wordle":
+        if self.game_name == "wordle_noexp":
             return SPEED_SCORES[num_rounds]
         return round(100 / num_rounds, 2)
 
@@ -663,14 +663,14 @@ class WordleGameBenchmark(GameBenchmark):
         super().__init__(game_spec)
 
     def create_game_master(self, experiment: Dict, player_models: List[Model]) -> GameMaster:
-        if self.game_name == "wordle_withcritic":
+        if self.game_name == "wordle_withcritic_noexp":
             return WordleWithCritic(self.game_spec, experiment, player_models)
-        elif self.game_name == "wordle_withclue":
+        elif self.game_name == "wordle_withclue_noexp":
             return WordleWithClue(self.game_spec, experiment, player_models)
         else:
             return Wordle(self.game_spec, experiment, player_models)
 
     def create_game_scorer(self, experiment: Dict, game_instance: Dict) -> GameScorer:
-        if self.game_name == "wordle_withcritic":
+        if self.game_name == "wordle_withcritic_noexp":
             return WordleWithCriticScorer(self.game_name, experiment, game_instance)
         return WordleScorer(self.game_name, experiment, game_instance)
