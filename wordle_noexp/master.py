@@ -152,7 +152,7 @@ def parse_response(player: Player, response: str, words: Dict) -> Tuple[str, str
 
     content = content_match[0].strip().lower()
 
-    return content
+    return content, ""
 
 
 def validate_guess(guess: str, words: Dict):
